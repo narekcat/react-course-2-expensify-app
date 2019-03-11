@@ -4,10 +4,11 @@ import {
   startAddExpense,
   addExpense,
   editExpense,
+  startEditExpense,
   removeExpense,
+  startRemoveExpense,
   setExpenses,
-  startSetExpenses,
-  startRemoveExpense
+  startSetExpenses
 } from '../../actions/expenses';
 import expenses from '../fixtures/expenses';
 import database from '../../firebase/firebase';
@@ -30,6 +31,27 @@ test('should setup remove expense action object', () => {
   });
 });
 
+test('should remove expense from firebase', (done) => {
+  const store = createMockStore({});
+  const id = expenses[0].id;
+
+  store.dispatch(startRemoveExpense(id)).then(() => {
+    const actions = store.getActions();
+
+    expect(actions[0]).toEqual({
+      type: 'REMOVE_EXPENSE',
+      id
+    });
+
+    return database.ref(`expenses/${id}`)
+      .once('value');
+  }).then((snapshot) => {
+    expect(snapshot.key).toEqual(id);
+    expect(snapshot.val()).toBeNull();
+    done();
+  });
+}, 10000);
+
 test('should setup edit expense action object', () => {
   const action = editExpense('123abc', { note: 'New note value' });
   expect(action).toEqual({
@@ -40,6 +62,36 @@ test('should setup edit expense action object', () => {
     }
   });
 });
+
+test('should edit expense in firebase', (done) => {
+  const store = createMockStore({});
+  const id = expenses[0].id;
+  const updates = {
+    description: 'test test test',
+    amount: 1000
+  };
+
+  store.dispatch(startEditExpense(id, updates)).then(() => {
+    const actions = store.getActions();
+
+    expect(actions[0]).toEqual({
+      type: 'EDIT_EXPENSE',
+      id,
+      updates
+    });
+
+    return database.ref(`expenses/${id}`)
+      .once('value');
+  }).then((snapshot) => {
+    expect(snapshot.key).toEqual(id);
+    expect(snapshot.val()).toEqual({
+      ...expenses[0],
+      ...updates,
+      id: undefined
+    });
+    done();
+  });
+}, 10000);
 
 test('should setup add expense action object with provided values', () => {
   const action = addExpense(expenses[2]);
@@ -120,27 +172,6 @@ test('should fetch expenses from firebase', (done) => {
       type: 'SET_EXPENSES',
       expenses
     });
-    done();
-  });
-}, 10000);
-
-test('should remove expense from firebase', (done) => {
-  const store = createMockStore({});
-  const id = expenses[0].id;
-
-  store.dispatch(startRemoveExpense(id)).then(() => {
-    const actions = store.getActions();
-
-    expect(actions[0]).toEqual({
-      type: 'REMOVE_EXPENSE',
-      id
-    });
-
-    return database.ref(`expenses/${id}`)
-      .once('value');
-  }).then((snapshot) => {
-    expect(snapshot.key).toEqual(id);
-    expect(snapshot.val()).toBeNull();
     done();
   });
 }, 10000);
